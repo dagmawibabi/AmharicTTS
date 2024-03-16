@@ -1,15 +1,19 @@
-// ignore_for_file: avoid_unnecessary_containers, prefer_const_constructors, prefer_const_literals_to_create_immutables
+// ignore_for_file: avoid_unnecessary_containers, prefer_const_constructors, prefer_const_literals_to_create_immutables, depend_on_referenced_packages, unused_field, unused_import, avoid_print
 
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:amhtts/components/modelSelectionBottomSheet.dart';
+import 'package:assets_audio_player/assets_audio_player.dart';
 import 'package:flutter/material.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:assets_audio_player/assets_audio_player.dart';
+import 'package:wave/wave.dart';
+import 'package:wave/config.dart';
+import 'package:http/http.dart' as http;
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -54,83 +58,53 @@ class _HomePageState extends State<HomePage> {
 
   var apiResponse = "";
   var isLoading = false;
-  void callAPI() async {
+  void callAPI2() async {
     apiResponse = "";
     isLoading = true;
     setState(() {});
     print("Sending Request...");
-    var userInput = userInputController.text.trim().toString();
+
     try {
-      var abc = await dio.post(
-        url,
-        data: {"inputs": userInput},
-        options: Options(
-          headers: {
-            "Authorization": "Bearer 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",
-          },
-        ),
+      var userInput = userInputController.text.trim().toString();
+      var validURL = Uri.parse(url);
+
+      var req = await http.post(
+        validURL,
+        headers: {
+          "Authorization": "Bearer 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"
+        },
+        body: {
+          "inputs": userInput,
+        },
       );
-      apiResponse = "";
-      isLoading = false;
-      setState(() {});
+
+      Uint8List resBytes = req.bodyBytes;
+      // print(resBytes.offsetInBytes);
+      // apiResponse = "RESPONSE! ${resBytes.toSet()}";
 
       final Directory tempDir = await getTemporaryDirectory();
-      final filePath = '${tempDir.path}/temp3_file.flac';
+      final filePath = '${tempDir.path}/temp10_file.flac';
+      print(filePath);
 
-      // print('Downloading...');
-      // var res = await dio.download(
-      //   url,
-      //   filePath,
-      //   data: {"inputs": userInput},
-      //   options: Options(
-      //     headers: {
-      //       "Authorization": "Bearer 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",
-      //     },
-      //   ),
-      //   onReceiveProgress: (received, total) {
-      //     if (total <= 0) return;
-      //     print('percentage: ${(received / total * 100).toStringAsFixed(0)}%');
-      //   },
-      // );
-      // var music = File(filePath);
-      // print(await music.exists());
-      // print(await music.path);
-      // print(await music.stat());
-      // print(res.data);
-      // print(await file.readAsString());
-      // print(abc.data);
-
-      print("Writing to temp file...");
-      final file = File(filePath);
-      await file.writeAsString(
-        abc.data,
-        mode: FileMode.writeOnly,
+      print("Writing to file...");
+      File file = File(filePath);
+      await file.writeAsBytes(
+        resBytes,
+        mode: FileMode.write,
       );
-      // await AssetsAudioPlayer.newPlayer().open(
-      //   Audio(filePath),
-      //   autoStart: true,
-      //   showNotification: true,
-      // );
 
+      print("Playing...");
       final audioPlayer = AudioPlayer();
-      await audioPlayer.setFilePath(filePath);
-      await audioPlayer.setAudioSource(file as AudioSource);
+      final audioSource = AudioSource.uri(Uri.file(filePath));
+      await audioPlayer.setAudioSource(audioSource);
       await audioPlayer.play();
 
-      // print("Setting audio source...");
-      // UriAudioSource audioFile = AudioSource.file(filePath);
-      // await audioPlayer.setAudioSource(audioFile);
-      // await audioPlayer.setFilePath(filePath);
-      // await audioPlayer.load();
-
-      // print("Playing...");
-      // await audioPlayer.play();
-      // await audioPlayer.dispose();
+      print("Done!");
     } catch (e) {
-      apiResponse = "Server Error!";
       print(e);
+      apiResponse = "Server Error! $e";
     }
-    print("Done! Response...");
+
     isLoading = false;
     setState(() {});
   }
@@ -147,100 +121,254 @@ class _HomePageState extends State<HomePage> {
   void showAvailableModels() {
     showModalBottomSheet(
       context: context,
-      builder: (context) => ModelSelectionBottomSheet(setModel: setModel),
+      builder: (context) => ModelSelectionBottomSheet(
+        setModel: setModel,
+        isEnglish: isEnglish,
+      ),
     );
+  }
+
+  bool isMaleVoice = true;
+  void selectVoiceGender(int choice) {
+    if (choice == 1) {
+      isMaleVoice = true;
+    } else if (choice == 2) {
+      isMaleVoice = false;
+    }
+    setState(() {});
+  }
+
+  bool isEnglish = false;
+  void changeLanguage() {
+    isEnglish = !isEnglish;
+    setState(() {});
+  }
+
+  // Did Client Pay?
+  bool didclientpay = false;
+  void checkdidclientpay() async {
+    var result = await dio.get("https://www.dagmawibabi.com/didclientpay.json");
+    didclientpay = result.data["didclientpay"];
+    setState(() {});
+  }
+
+  static const _backgroundColor = Color(0xFFF15BB5);
+
+  @override
+  void initState() {
+    super.initState();
+    checkdidclientpay();
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Row(
-          children: [
-            Icon(
-              Icons.voice_chat,
+    return didclientpay == false
+        ? Scaffold(
+            body: Center(
+              child: Text(
+                "PAY TO ACCESS APP!",
+              ),
             ),
-            SizedBox(width: 10.0),
-            Text("Text To Speech"),
-          ],
-        ),
-        actions: [
-          IconButton(
-            onPressed: () {
-              showAvailableModels();
-            },
-            icon: Icon(
-              Icons.account_tree_outlined,
-            ),
-          ),
-        ],
-      ),
-      body: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Container(
-                    // width: MediaQuery.of(context).size.width * 0.7,
-                    padding: EdgeInsets.only(left: 20.0, right: 10.0),
-                    child: TextField(
-                      controller: userInputController,
-                      decoration: InputDecoration(
-                        hintText: "Enter text to convert to speech",
-                      ),
-                    ),
+          )
+        : Scaffold(
+            appBar: AppBar(
+              title: Row(
+                children: [
+                  Icon(
+                    Icons.voice_chat,
+                  ),
+                  SizedBox(width: 10.0),
+                  Text("Text To Speech"),
+                ],
+              ),
+              actions: [
+                IconButton(
+                  onPressed: () {
+                    showAvailableModels();
+                  },
+                  icon: Icon(
+                    Icons.account_tree_outlined,
                   ),
                 ),
-                isLoading == true
-                    ? CircularProgressIndicator()
-                    : ElevatedButton(
-                        onPressed: () {
-                          if (currentModel == 0) {
-                            onDeviceTTS();
-                          } else {
-                            callAPI();
-                          }
-                        },
-                        child: Text(
-                          "Speak",
-                        ),
-                      ),
-                SizedBox(width: 10.0),
+                IconButton(
+                  onPressed: () {
+                    changeLanguage();
+                  },
+                  icon: Icon(
+                    Icons.language_outlined,
+                  ),
+                ),
               ],
             ),
-            SizedBox(height: 10.0),
-            // Current Model
-            Padding(
-              padding: const EdgeInsets.only(left: 20.0),
-              child: Row(
+            body: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text("Selected Model: "),
-                  Text(
-                    modelName,
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
+                  Padding(
+                    padding: const EdgeInsets.only(left: 20.0),
+                    child: Row(
+                      children: [
+                        Text(
+                          isEnglish == true
+                              ? "Selected Model: "
+                              : "የተመረጠው ሞዴል: ",
+                        ),
+                        Text(
+                          modelName,
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  SizedBox(height: 10.0),
+
+                  // Wave
+                  Container(
+                    width: MediaQuery.of(context).size.width,
+                    height: 20.0,
+                    child: WaveWidget(
+                      config: CustomConfig(
+                        colors: [
+                          Colors.pinkAccent,
+                          Colors.greenAccent,
+                          Color(0xFF00BBF9),
+                        ],
+                        durations: [
+                          4000,
+                          4000,
+                          4000,
+                        ],
+                        heightPercentages: [
+                          1.4,
+                          0.80,
+                          1.1,
+                        ],
+                      ),
+                      backgroundColor:
+                          Theme.of(context).scaffoldBackgroundColor,
+                      size: Size(
+                        double.infinity,
+                        double.infinity,
+                      ),
+                      waveAmplitude: 2,
+                    ),
+                  ),
+                  SizedBox(height: 35.0),
+
+                  // Input Box
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Container(
+                          // width: MediaQuery.of(context).size.width * 0.7,
+                          padding: EdgeInsets.only(left: 20.0, right: 10.0),
+                          child: TextField(
+                            controller: userInputController,
+                            decoration: InputDecoration(
+                              hintText: isEnglish == true
+                                  ? "Enter text to convert to speech"
+                                  : "ወደ ንግግር ለመቀየር ጽሑፍ ያስገቡ",
+                            ),
+                          ),
+                        ),
+                      ),
+                      isLoading == true
+                          ? CircularProgressIndicator()
+                          : ElevatedButton(
+                              onPressed: () {
+                                if (currentModel == 0) {
+                                  onDeviceTTS();
+                                } else {
+                                  callAPI2();
+                                }
+                              },
+                              child: Text(
+                                isEnglish == true ? "Speak" : "ተናገር",
+                              ),
+                            ),
+                      SizedBox(width: 10.0),
+                    ],
+                  ),
+                  SizedBox(height: 15.0),
+
+                  // Current Model
+                  // Voice Gender
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          SizedBox(width: 20.0),
+                          ElevatedButton(
+                            onPressed: () {
+                              selectVoiceGender(1);
+                            },
+                            style: isMaleVoice == true
+                                ? ButtonStyle(
+                                    backgroundColor: MaterialStatePropertyAll(
+                                      Colors.grey[900],
+                                    ),
+                                    foregroundColor: MaterialStatePropertyAll(
+                                      Colors.white,
+                                    ),
+                                  )
+                                : ButtonStyle(),
+                            child: Text(
+                              isEnglish == true ? "Male" : "የወንድ ድምፅ",
+                            ),
+                          ),
+                          SizedBox(width: 10.0),
+                          ElevatedButton(
+                            onPressed: () {
+                              selectVoiceGender(2);
+                            },
+                            style: isMaleVoice == false
+                                ? ButtonStyle(
+                                    backgroundColor: MaterialStatePropertyAll(
+                                      Colors.grey[900],
+                                    ),
+                                    foregroundColor: MaterialStatePropertyAll(
+                                      Colors.white,
+                                    ),
+                                  )
+                                : ButtonStyle(),
+                            child: Text(
+                              isEnglish == true ? "Female" : "የሴት ድምፅ",
+                            ),
+                          ),
+                        ],
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.only(right: 10.0),
+                        child: ElevatedButton(
+                          onPressed: () {
+                            selectVoiceGender(1);
+                          },
+                          child: Text(
+                            isEnglish == true ? "Download" : "አውርድ",
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 5.0),
+
+                  // ERROR
+                  Padding(
+                    padding: const EdgeInsets.only(left: 20.0),
+                    child: Text(
+                      apiResponse,
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.redAccent,
+                      ),
                     ),
                   ),
                 ],
               ),
             ),
-            SizedBox(height: 10.0),
-            // ERROR
-            Padding(
-              padding: const EdgeInsets.only(left: 20.0),
-              child: Text(
-                apiResponse,
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: Colors.redAccent,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+          );
   }
 }

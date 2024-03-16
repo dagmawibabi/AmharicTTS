@@ -1,12 +1,17 @@
-// ignore_for_file: prefer_const_constructors, prefer_const_literals_to_create_immutables, avoid_unnecessary_containers
+// ignore_for_file: prefer_const_constructors, prefer_const_literals_to_create_immutables, avoid_unnecessary_containers, sized_box_for_whitespace, file_names
 
 import 'package:amhtts/components/eachModel.dart';
 import 'package:flutter/material.dart';
 
 class ModelSelectionBottomSheet extends StatefulWidget {
-  const ModelSelectionBottomSheet({super.key, required this.setModel});
+  const ModelSelectionBottomSheet({
+    super.key,
+    required this.setModel,
+    required this.isEnglish,
+  });
 
   final Function setModel;
+  final bool isEnglish;
 
   @override
   State<ModelSelectionBottomSheet> createState() =>
@@ -27,7 +32,7 @@ class _ModelSelectionBottomSheetState extends State<ModelSelectionBottomSheet> {
               Padding(
                 padding: const EdgeInsets.only(top: 8.0, left: 18.0),
                 child: Text(
-                  "Models",
+                  widget.isEnglish == true ? "Models" : "ሞዴሎች",
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 25.0,
